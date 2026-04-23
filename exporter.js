@@ -31,7 +31,7 @@
             fields: 'date, statut, client, prestataire, montant, mode de paiement, source…',
             defaultOn: true,
             requiresDateRange: true,
-            fetch: (shopID, opts) => fetchFlat(`/v2/core/${shopID}/v1/visits/period?from=${opts.from}&to=${opts.to}`)
+            fetch: (shopID, opts) => fetchFlat(`/v2/core/${shopID}/v1/visits/period?from=${encodeURIComponent(toIsoStart(opts.from))}&to=${encodeURIComponent(toIsoEnd(opts.to))}`)
         },
         {
             id: 'appointments',
@@ -43,7 +43,7 @@
             requiresDateRange: true,
             futureMode: true,
             fetch: async (shopID, opts) => {
-                const data = await fetchFlat(`/v2/core/${shopID}/v1/visits/period?from=${opts.from}&to=${opts.to}`);
+                const data = await fetchFlat(`/v2/core/${shopID}/v1/visits/period?from=${encodeURIComponent(toIsoStart(opts.from))}&to=${encodeURIComponent(toIsoEnd(opts.to))}`);
                 return data.filter(v => v.status === 'APPOINTMENT');
             }
         },
@@ -195,6 +195,9 @@
     function todayISO() {
         return new Date().toISOString().slice(0, 10);
     }
+
+    function toIsoStart(d) { return `${d}T00:00:00.000Z`; }
+    function toIsoEnd(d)   { return `${d}T23:59:59.999Z`; }
 
     function presetToRange(preset, futureMode = false) {
         if (preset === 'all') {
@@ -742,9 +745,9 @@
                     <div class="wavy-date-row" style="margin-top:8px">
                         <label style="font-size:12px;color:#6b7280;flex-shrink:0">Découpage :</label>
                         <select class="wavy-date-select" id="wavy-chunk-${g.id}">
-                            <option value="none">Fichier unique</option>
-                            <option value="year"${g.futureMode ? '' : ' selected'}>Par année</option>
-                            <option value="month">Par mois</option>
+                            <option value="none"${g.futureMode ? ' selected' : ''}>Fichier unique</option>
+                            <option value="year">Par année</option>
+                            <option value="month"${g.futureMode ? '' : ' selected'}>Par mois</option>
                         </select>
                     </div>
                 </div>` : ''}
