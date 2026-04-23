@@ -806,16 +806,41 @@
             // ── Cache badges ──
             function renderCacheBadges(sid) {
                 DATA_GROUPS.forEach(g => {
-                    if (g.requiresDateRange) return;
                     const badge = document.getElementById(`wavy-cache-badge-${g.id}`);
                     if (!badge) return;
-                    const entry = loadFromCache(cacheKey(sid, g.id), CACHE_TTL[g.id] || 3_600_000);
-                    if (entry) {
-                        const age = formatAge(Date.now() - entry.fetchedAt);
-                        badge.textContent = `📦 ${age} · ${entry.count}`;
-                        badge.className = 'wavy-cache-badge wavy-cache-fresh';
+
+                    if (g.requiresDateRange) {
+                        // Chunked group — aggregate all per-period cache entries
+                        const prefix = cacheKey(sid, g.id) + '_';
+                        let totalCount = 0, newestFetchedAt = 0, chunkCount = 0;
+                        for (let i = 0; i < localStorage.length; i++) {
+                            const key = localStorage.key(i);
+                            if (!key || !key.startsWith(prefix)) continue;
+                            const raw = localStorage.getItem(key);
+                            if (!raw) continue;
+                            try {
+                                const e = JSON.parse(raw);
+                                totalCount += e.count || 0;
+                                chunkCount++;
+                                if (e.fetchedAt > newestFetchedAt) newestFetchedAt = e.fetchedAt;
+                            } catch {}
+                        }
+                        if (chunkCount > 0) {
+                            const age = formatAge(Date.now() - newestFetchedAt);
+                            badge.textContent = `📦 ${totalCount.toLocaleString('fr-FR')} enregistrements (${chunkCount} période${chunkCount > 1 ? 's' : ''}) · dernière récupération il y a ${age}`;
+                            badge.className = 'wavy-cache-badge wavy-cache-fresh';
+                        } else {
+                            badge.textContent = '';
+                        }
                     } else {
-                        badge.textContent = '';
+                        const entry = loadFromCache(cacheKey(sid, g.id), CACHE_TTL[g.id] || 3_600_000);
+                        if (entry) {
+                            const age = formatAge(Date.now() - entry.fetchedAt);
+                            badge.textContent = `📦 ${entry.count.toLocaleString('fr-FR')} enregistrements · dernière récupération il y a ${age}`;
+                            badge.className = 'wavy-cache-badge wavy-cache-fresh';
+                        } else {
+                            badge.textContent = '';
+                        }
                     }
                 });
             }
