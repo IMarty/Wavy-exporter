@@ -180,21 +180,6 @@
         ].join('\n');
     }
 
-    function writeFormats(zip, baseName, data, format) {
-        let size = 0, files = 0;
-        if (format === 'csv' || format === 'both') {
-            const c = toCSV(data);
-            zip.file(`csv/${baseName}.csv`, c);
-            size += byteSize(c); files++;
-        }
-        if (format === 'json' || format === 'both') {
-            const c = JSON.stringify(data, null, 2);
-            zip.file(`json/${baseName}.json`, c);
-            size += byteSize(c); files++;
-        }
-        return { size, files };
-    }
-
     function dateOffset(days) {
         const d = new Date();
         d.setDate(d.getDate() - days);
@@ -792,23 +777,8 @@
                     <input type="checkbox" id="wavy-ignore-cache">
                     Ignorer le cache et tout re-télécharger
                 </label>
-                <div class="wavy-section-title">Format d'export</div>
-                <div class="wavy-format-row">
-                    <div class="wavy-fmt-btn selected" data-fmt="both">
-                        <span class="wavy-fmt-icon">📦</span>
-                        CSV + JSON
-                        <div style="font-size:11px;color:#6b7280;margin-top:2px">Les deux formats (recommandé)</div>
-                    </div>
-                    <div class="wavy-fmt-btn" data-fmt="csv">
-                        <span class="wavy-fmt-icon">📊</span>
-                        CSV seul
-                        <div style="font-size:11px;color:#6b7280;margin-top:2px">Compatible Excel, LibreOffice</div>
-                    </div>
-                    <div class="wavy-fmt-btn" data-fmt="json">
-                        <span class="wavy-fmt-icon">📄</span>
-                        JSON seul
-                        <div style="font-size:11px;color:#6b7280;margin-top:2px">Données brutes, pour développeurs</div>
-                    </div>
+                <div style="font-size:11px;color:#6b7280;margin-top:8px">
+                    Le format (CSV / JSON) sera choisi après la récupération des données.
                 </div>`;
 
             const footHtml = `
@@ -989,16 +959,6 @@
                 }
             });
 
-            // ── Format ──
-            let selectedFormat = 'both';
-            document.querySelectorAll('.wavy-fmt-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    document.querySelectorAll('.wavy-fmt-btn').forEach(b => b.classList.remove('selected'));
-                    btn.classList.add('selected');
-                    selectedFormat = btn.dataset.fmt;
-                });
-            });
-
             // ── Lancer ──
             document.getElementById('wavy-launch').addEventListener('click', () => {
                 const selectedGroups = DATA_GROUPS.filter(g => document.getElementById(`wavy-chk-${g.id}`)?.checked);
@@ -1023,7 +983,7 @@
                 });
 
                 const useCache = !document.getElementById('wavy-ignore-cache')?.checked;
-                resolve({ shopID, shopName, selectedGroups, format: selectedFormat, dateRanges, useCache });
+                resolve({ shopID, shopName, selectedGroups, dateRanges, useCache });
             });
         });
     }
@@ -1054,7 +1014,7 @@
              <div class="wavy-current-step" id="wavy-current-step">&nbsp;</div>
              <div class="wavy-substep" id="wavy-substep"></div>
              <div class="wavy-logs" id="wavy-logs"></div>`,
-            `<button class="wavy-dl-btn" id="wavy-dl-btn">📦 Télécharger le fichier ZIP</button>`
+            ''
         );
 
         return {
@@ -1085,20 +1045,32 @@
                 logs.appendChild(el);
                 logs.scrollTop = logs.scrollHeight;
             },
-            showSummary(stats, totalSize, fromCache) {
+            showSummary(stats, entries, onDownload) {
                 const body = document.getElementById('wavy-exp-body');
                 const totalRecords = stats.reduce((a, s) => a + s.count, 0);
                 const totalFiles = stats.reduce((a, s) => a + s.files, 0);
 
-                const summaryHtml = `
+                // Group entries by groupId to compute raw CSV/JSON sizes per group lazily in a worker-free pass
+                const sizesByGroup = {};
+                for (const e of entries) {
+                    const s = sizesByGroup[e.groupId] || (sizesByGroup[e.groupId] = { csv: 0, json: 0 });
+                    const csv = toCSV(e.data);
+                    const json = JSON.stringify(e.data);
+                    s.csv += byteSize(csv);
+                    s.json += byteSize(json);
+                }
+                const totalCsv  = Object.values(sizesByGroup).reduce((a, s) => a + s.csv,  0);
+                const totalJson = Object.values(sizesByGroup).reduce((a, s) => a + s.json, 0);
+
+                body.innerHTML = `
                     <div class="wavy-warning-banner" style="background:#ecfdf5;border-color:#6ee7b7;color:#065f46">
                         <span style="font-size:18px;flex-shrink:0">✅</span>
-                        <span><strong>Export prêt</strong> — vérifiez le contenu ci-dessous puis téléchargez le ZIP.</span>
+                        <span><strong>Données récupérées</strong> — choisissez le format et téléchargez.</span>
                     </div>
                     <div class="wavy-summary">
                         <div class="wavy-summary-head">
                             <span>Contenu de l'archive</span>
-                            <span style="font-weight:500;color:#047857">${totalFiles} fichier${totalFiles > 1 ? 's' : ''} · ${formatBytes(totalSize)}</span>
+                            <span style="font-weight:500;color:#047857">${totalFiles} fichier${totalFiles > 1 ? 's' : ''}</span>
                         </div>
                         <table class="wavy-summary-table">
                             <thead>
@@ -1106,48 +1078,74 @@
                                     <th>Groupe</th>
                                     <th class="num">Enregistrements</th>
                                     <th class="num">Fichiers</th>
-                                    <th class="num">Taille</th>
+                                    <th class="num">CSV</th>
+                                    <th class="num">JSON</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${stats.map(s => `
-                                    <tr>
-                                        <td>
-                                            <span class="sm-icon">${s.icon}</span>${s.name}
-                                            ${s.cached ? '<span class="sm-cache-badge">cache</span>' : ''}
-                                        </td>
-                                        <td class="num ${s.count === 0 ? 'sm-empty' : ''}">${s.count === 0 ? 'aucun' : s.count.toLocaleString('fr-FR')}</td>
-                                        <td class="num">${s.files}</td>
-                                        <td class="num">${s.count === 0 ? '—' : formatBytes(s.size)}</td>
-                                    </tr>
-                                `).join('')}
+                                ${stats.map(s => {
+                                    const sz = sizesByGroup[s.id] || { csv: 0, json: 0 };
+                                    return `
+                                        <tr>
+                                            <td>
+                                                <span class="sm-icon">${s.icon}</span>${s.name}
+                                                ${s.cached ? '<span class="sm-cache-badge">cache</span>' : ''}
+                                            </td>
+                                            <td class="num ${s.count === 0 ? 'sm-empty' : ''}">${s.count === 0 ? 'aucun' : s.count.toLocaleString('fr-FR')}</td>
+                                            <td class="num">${s.files}</td>
+                                            <td class="num">${s.count === 0 ? '—' : formatBytes(sz.csv)}</td>
+                                            <td class="num">${s.count === 0 ? '—' : formatBytes(sz.json)}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
                                 <tr class="total">
                                     <td>Total</td>
                                     <td class="num">${totalRecords.toLocaleString('fr-FR')}</td>
                                     <td class="num">${totalFiles}</td>
-                                    <td class="num">${formatBytes(totalSize)}</td>
+                                    <td class="num">${formatBytes(totalCsv)}</td>
+                                    <td class="num">${formatBytes(totalJson)}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-                    <details style="margin-top:8px">
+                    <div class="wavy-section-title" style="margin-top:14px">Télécharger</div>
+                    <div class="wavy-format-row">
+                        <button class="wavy-fmt-btn" data-dl="both" style="border:none;cursor:pointer;font:inherit;text-align:center">
+                            <span class="wavy-fmt-icon">📦</span>
+                            CSV + JSON
+                            <div style="font-size:11px;color:#6b7280;margin-top:2px">${formatBytes(totalCsv + totalJson)} non compressé</div>
+                        </button>
+                        <button class="wavy-fmt-btn" data-dl="csv" style="border:none;cursor:pointer;font:inherit;text-align:center">
+                            <span class="wavy-fmt-icon">📊</span>
+                            CSV seul
+                            <div style="font-size:11px;color:#6b7280;margin-top:2px">${formatBytes(totalCsv)} · Excel compatible</div>
+                        </button>
+                        <button class="wavy-fmt-btn" data-dl="json" style="border:none;cursor:pointer;font:inherit;text-align:center">
+                            <span class="wavy-fmt-icon">📄</span>
+                            JSON seul
+                            <div style="font-size:11px;color:#6b7280;margin-top:2px">${formatBytes(totalJson)} · données brutes</div>
+                        </button>
+                    </div>
+                    <details style="margin-top:12px">
                         <summary style="cursor:pointer;font-size:12px;color:#6b7280;user-select:none">
                             Afficher le journal détaillé
                         </summary>
                         <div class="wavy-logs" id="wavy-logs-copy" style="margin-top:8px">${document.getElementById('wavy-logs').innerHTML}</div>
                     </details>
                 `;
-                body.innerHTML = summaryHtml;
-            },
-            showDownload(blob, filename) {
-                const btn = document.getElementById('wavy-dl-btn');
-                btn.style.display = 'flex';
-                btn.addEventListener('click', () => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = filename;
-                    document.body.appendChild(a); a.click();
-                    document.body.removeChild(a); URL.revokeObjectURL(url);
+
+                body.querySelectorAll('[data-dl]').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const fmt = btn.dataset.dl;
+                        body.querySelectorAll('[data-dl]').forEach(b => b.disabled = true);
+                        btn.style.opacity = '0.6';
+                        btn.textContent = 'Compression…';
+                        try { await onDownload(fmt); }
+                        finally {
+                            body.querySelectorAll('[data-dl]').forEach(b => b.disabled = false);
+                            btn.style.opacity = '';
+                        }
+                    });
                 });
             }
         };
@@ -1157,17 +1155,18 @@
     // EXPORT
     // ─────────────────────────────────────────────
     async function runExport(config, ui) {
-        const { shopID, shopName, selectedGroups, format, dateRanges, useCache } = config;
+        const { shopID, shopName, selectedGroups, dateRanges, useCache } = config;
 
         const beforeUnloadHandler = e => { e.preventDefault(); e.returnValue = ''; };
         window.addEventListener('beforeunload', beforeUnloadHandler);
 
-        const JSZip = await loadJSZip();
-        ui.log('JSZip chargé', 'success');
+        // Warm up JSZip early — compression runs later, on download click.
+        loadJSZip().then(() => ui.log('JSZip chargé', 'success')).catch(() => {});
 
-        const zip = new JSZip();
         const results = { ok: [], fail: [] };
         const stats = [];
+        // Accumulated entries — one per file-to-write. ZIP is assembled lazily on download click.
+        const entries = [];
         const total = selectedGroups.length;
 
         for (let i = 0; i < total; i++) {
@@ -1180,7 +1179,7 @@
                 const opts = grp.requiresDateRange ? dateRanges[grp.id] : {};
                 const slug = grp.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '_');
 
-                let groupRecords = 0, groupSize = 0, groupFiles = 0, groupFromCache = false;
+                let groupRecords = 0, groupFiles = 0, groupFromCache = false;
 
                 if (grp.requiresDateRange && opts.chunk && opts.chunk !== 'none') {
                     // Past mode: iterate backwards from most recent. Future mode: forward from today.
@@ -1233,10 +1232,9 @@
                         }
 
                         if (unique.length > 0) {
-                            const written = writeFormats(zip, `${slug}_${period.label}`, unique, format);
+                            entries.push({ groupId: grp.id, baseName: `${slug}_${period.label}`, data: unique });
                             groupRecords += unique.length;
-                            groupSize += written.size;
-                            groupFiles += written.files;
+                            groupFiles += 1;
                             consecutiveEmpty = 0;
                         } else {
                             consecutiveEmpty++;
@@ -1307,19 +1305,20 @@
                         ui.log(`${grp.name} : aucune donnée`, 'warning');
                         results.ok.push({ name: grp.name, count: 0 });
                     } else {
-                        const written = writeFormats(zip, slug, data, format);
+                        entries.push({ groupId: grp.id, baseName: slug, data });
                         groupRecords = data.length;
-                        groupSize = written.size;
-                        groupFiles = written.files;
+                        groupFiles = 1;
                         if (!groupFromCache) ui.log(`${grp.name} : ${data.length} enregistrements`, 'success');
                         results.ok.push({ name: grp.name, count: data.length });
                     }
                 }
 
                 stats.push({
+                    id: grp.id,
                     name: grp.name, icon: grp.icon,
-                    count: groupRecords, size: groupSize,
-                    files: groupFiles, cached: groupFromCache
+                    count: groupRecords,
+                    files: groupFiles,
+                    cached: groupFromCache
                 });
             } catch (err) {
                 ui.log(`${grp.name} : erreur — ${err.message}`, 'error');
@@ -1329,15 +1328,6 @@
             if (i < total - 1) await sleep(DELAY);
         }
 
-        // Rapport
-        zip.file('_rapport.json', JSON.stringify({
-            salon: shopName,
-            dateExport: new Date().toISOString(),
-            format,
-            reussis: results.ok,
-            echecs: results.fail
-        }, null, 2));
-
         window.removeEventListener('beforeunload', beforeUnloadHandler);
 
         ui.setProgress(100, total);
@@ -1345,16 +1335,42 @@
         if (results.fail.length) {
             ui.log(`${results.fail.length} erreur(s) — voir le rapport`, 'warning');
         }
-        ui.log('Compression ZIP…', 'info');
 
-        const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
-        const totalSize = stats.reduce((a, s) => a + s.size, 0);
-        const anyCache = stats.some(s => s.cached);
+        const totalRecords = stats.reduce((a, s) => a + s.count, 0);
+        ui.log(`Récupération terminée : ${totalRecords.toLocaleString('fr-FR')} enregistrements`, 'success');
 
-        ui.showSummary(stats, totalSize, anyCache);
-
+        const report = {
+            salon: shopName,
+            dateExport: new Date().toISOString(),
+            reussis: results.ok,
+            echecs: results.fail
+        };
         const date = todayISO().replace(/-/g, '');
-        ui.showDownload(blob, `export_wavy_${date}.zip`);
+
+        const buildAndDownload = async (format) => {
+            const JSZip = await loadJSZip();
+            ui.log(`Compression ZIP (${format})…`, 'info');
+            const zip = new JSZip();
+            for (const e of entries) {
+                if (format === 'csv' || format === 'both') {
+                    zip.file(`csv/${e.baseName}.csv`, toCSV(e.data));
+                }
+                if (format === 'json' || format === 'both') {
+                    zip.file(`json/${e.baseName}.json`, JSON.stringify(e.data, null, 2));
+                }
+            }
+            zip.file('_rapport.json', JSON.stringify({ ...report, format }, null, 2));
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `export_wavy_${date}_${format}.zip`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a); URL.revokeObjectURL(url);
+            ui.log(`Téléchargement lancé : ${a.download}`, 'success');
+        };
+
+        ui.showSummary(stats, entries, buildAndDownload);
     }
 
     // ─────────────────────────────────────────────
