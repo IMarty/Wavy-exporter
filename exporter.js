@@ -93,8 +93,8 @@
             fields: 'client, programme, montant initial, solde restant, expiration…',
             defaultOn: true,
             incremental: true,
-            fetch:       (shopID, opts, onProgress)  => fetchFeathers(`/shops/${shopID}/credits`, onProgress),
-            fetchSince:  (shopID, since, onProgress) => fetchFeathersSince(`/shops/${shopID}/credits`, since, onProgress)
+            fetch:       (shopID, opts, onProgress)  => fetchFeathers(`/shops/${shopID}/credits`, onProgress, 1000),
+            fetchSince:  (shopID, since, onProgress) => fetchFeathersSince(`/shops/${shopID}/credits`, since, onProgress, 1000)
         },
         {
             id: 'caisses',
@@ -178,6 +178,21 @@
             cols.map(escapeCSV).join(','),
             ...flat.map(r => cols.map(c => escapeCSV(r[c] ?? '')).join(','))
         ].join('\n');
+    }
+
+    function writeFormats(zip, baseName, data, format) {
+        let size = 0, files = 0;
+        if (format === 'csv' || format === 'both') {
+            const c = toCSV(data);
+            zip.file(`csv/${baseName}.csv`, c);
+            size += byteSize(c); files++;
+        }
+        if (format === 'json' || format === 'both') {
+            const c = JSON.stringify(data, null, 2);
+            zip.file(`json/${baseName}.json`, c);
+            size += byteSize(c); files++;
+        }
+        return { size, files };
     }
 
     function dateOffset(days) {
@@ -265,10 +280,9 @@
         return [];
     }
 
-    async function fetchFeathers(path, onProgress) {
+    async function fetchFeathers(path, onProgress, limit = 200) {
         const all = [];
         let skip = 0;
-        const limit = 200;
         const sep = path.includes('?') ? '&' : '?';
         while (true) {
             const data = await apiGet(`${path}${sep}$limit=${limit}&$skip=${skip}`);
@@ -283,9 +297,9 @@
         return dedupe(all);
     }
 
-    async function fetchFeathersSince(path, sinceISO, onProgress) {
+    async function fetchFeathersSince(path, sinceISO, onProgress, limit = 200) {
         const sep = path.includes('?') ? '&' : '?';
-        return fetchFeathers(`${path}${sep}updatedAt[$gt]=${encodeURIComponent(sinceISO)}`, onProgress);
+        return fetchFeathers(`${path}${sep}updatedAt[$gt]=${encodeURIComponent(sinceISO)}`, onProgress, limit);
     }
 
     async function fetchCorePaginated(path, rowKey = 'rows', pageKey = 'page', sizeKey = 'pageSize', pageSize = 500, onProgress) {
@@ -780,14 +794,19 @@
                 </label>
                 <div class="wavy-section-title">Format d'export</div>
                 <div class="wavy-format-row">
-                    <div class="wavy-fmt-btn selected" data-fmt="csv">
+                    <div class="wavy-fmt-btn selected" data-fmt="both">
+                        <span class="wavy-fmt-icon">📦</span>
+                        CSV + JSON
+                        <div style="font-size:11px;color:#6b7280;margin-top:2px">Les deux formats (recommandé)</div>
+                    </div>
+                    <div class="wavy-fmt-btn" data-fmt="csv">
                         <span class="wavy-fmt-icon">📊</span>
-                        ZIP + CSV
+                        CSV seul
                         <div style="font-size:11px;color:#6b7280;margin-top:2px">Compatible Excel, LibreOffice</div>
                     </div>
                     <div class="wavy-fmt-btn" data-fmt="json">
                         <span class="wavy-fmt-icon">📄</span>
-                        ZIP + JSON
+                        JSON seul
                         <div style="font-size:11px;color:#6b7280;margin-top:2px">Données brutes, pour développeurs</div>
                     </div>
                 </div>`;
@@ -971,7 +990,7 @@
             });
 
             // ── Format ──
-            let selectedFormat = 'csv';
+            let selectedFormat = 'both';
             document.querySelectorAll('.wavy-fmt-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     document.querySelectorAll('.wavy-fmt-btn').forEach(b => b.classList.remove('selected'));
@@ -1173,7 +1192,8 @@
 
                     for (let p = 0; p < periods.length; p++) {
                         const period = periods[p];
-                        ui.setSubstep(`${period.label} · ${p + 1} / ${periods.length} · ${groupRecords} récupérés`);
+                        const baseLabel = `${period.label} · ${p + 1} / ${periods.length} · ${groupRecords} récupérés`;
+                        ui.setSubstep(baseLabel);
                         const chunkTTL = isPastChunk(period.label) ? Infinity : 3_600_000;
                         const ck = cacheKey(shopID, grp.id, period.label);
                         const cached = useCache ? loadFromCache(ck, chunkTTL) : null;
@@ -1183,18 +1203,40 @@
                             groupFromCache = true;
                             ui.log(`  ${period.label} : ${unique.length} (cache)`, 'cache');
                         } else {
-                            const data = await grp.fetch(shopID, { from: period.from, to: period.to });
+                            const t0 = Date.now();
+                            const tick = setInterval(() => {
+                                const s = Math.round((Date.now() - t0) / 1000);
+                                ui.setSubstep(`${baseLabel} · ${s}s`);
+                            }, 1000);
+                            let data;
+                            try { data = await grp.fetch(shopID, { from: period.from, to: period.to }); }
+                            finally { clearInterval(tick); }
                             unique = dedupe(data);
                             saveToCache(ck, unique);
                             ui.log(`  ${period.label} : ${unique.length} enregistrements`, 'success');
                             await sleep(DELAY);
                         }
+                        // Detect the "leakage" case: API returns a single record from outside the
+                        // requested window (typical when querying past the shop's creation date, or
+                        // past the last scheduled appointment). Treat as an unambiguous stop signal.
+                        const leaking = unique.length === 1 && (() => {
+                            const v = unique[0];
+                            const iso = v?.appointment?.date || v?.date || v?.createdAt;
+                            if (!iso) return false;
+                            return iso < `${period.from}T00:00:00.000Z` || iso > `${period.to}T23:59:59.999Z`;
+                        })();
+
+                        if (leaking) {
+                            stoppedEarly = true;
+                            ui.log(`${grp.name} : arrêt — résultat hors période (fin des données atteinte)`, 'info');
+                            break;
+                        }
+
                         if (unique.length > 0) {
-                            const content = format === 'json' ? JSON.stringify(unique, null, 2) : toCSV(unique);
-                            zip.file(`${slug}_${period.label}.${format}`, content);
+                            const written = writeFormats(zip, `${slug}_${period.label}`, unique, format);
                             groupRecords += unique.length;
-                            groupSize += byteSize(content);
-                            groupFiles++;
+                            groupSize += written.size;
+                            groupFiles += written.files;
                             consecutiveEmpty = 0;
                         } else {
                             consecutiveEmpty++;
@@ -1217,6 +1259,14 @@
                     const onProgress = (done, total) => {
                         ui.setSubstep(total != null ? `${done} / ${total} récupérés` : `${done} récupérés…`);
                     };
+                    const startTicker = (label) => {
+                        const t0 = Date.now();
+                        ui.setSubstep(`${label}…`);
+                        return setInterval(() => {
+                            const s = Math.round((Date.now() - t0) / 1000);
+                            ui.setSubstep(`${label}… ${s}s`);
+                        }, 1000);
+                    };
 
                     if (useCache && !grp.requiresDateRange) {
                         const fresh = loadFromCache(ck, ttl);
@@ -1228,9 +1278,11 @@
                             const raw = loadFromCacheRaw(ck);
                             const age = raw ? Date.now() - raw.fetchedAt : Infinity;
                             if (raw && age < INCREMENTAL_TTL) {
-                                ui.setSubstep('sync incrémentale…');
+                                const tick = startTicker('sync incrémentale');
                                 const since = new Date(raw.fetchedAt).toISOString();
-                                const updates = await grp.fetchSince(shopID, since, onProgress);
+                                let updates;
+                                try { updates = await grp.fetchSince(shopID, since, onProgress); }
+                                finally { clearInterval(tick); }
                                 if (updates.length === 0) {
                                     data = raw.data;
                                     ui.log(`${grp.name} : ${data.length} enregistrements (cache · à jour)`, 'cache');
@@ -1246,19 +1298,19 @@
                     }
 
                     if (data === undefined) {
-                        data = await grp.fetch(shopID, opts, onProgress);
-                        ui.setSubstep('');
+                        const tick = startTicker('requête en cours');
+                        try { data = await grp.fetch(shopID, opts, onProgress); }
+                        finally { clearInterval(tick); ui.setSubstep(''); }
                         if (!grp.requiresDateRange) saveToCache(ck, data);
                     }
                     if (data.length === 0) {
                         ui.log(`${grp.name} : aucune donnée`, 'warning');
                         results.ok.push({ name: grp.name, count: 0 });
                     } else {
-                        const content = format === 'json' ? JSON.stringify(data, null, 2) : toCSV(data);
-                        zip.file(`${slug}.${format}`, content);
+                        const written = writeFormats(zip, slug, data, format);
                         groupRecords = data.length;
-                        groupSize = byteSize(content);
-                        groupFiles = 1;
+                        groupSize = written.size;
+                        groupFiles = written.files;
                         if (!groupFromCache) ui.log(`${grp.name} : ${data.length} enregistrements`, 'success');
                         results.ok.push({ name: grp.name, count: data.length });
                     }
