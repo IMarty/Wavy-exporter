@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wavy Data Exporter - Exportez vos données facilement</title>
+    <meta name="description" content="Outil gratuit et open-source pour exporter vos données depuis Wavy.co. Simple, sécurisé et entièrement local.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        wavy: {
+                            50: '#e6faf7',
+                            100: '#ccf5ef',
+                            200: '#99ebdf',
+                            300: '#66e0cf',
+                            400: '#33d6bf',
+                            500: '#00d1b2',
+                            600: '#00a78e',
+                            700: '#007d6b',
+                            800: '#005447',
+                            900: '#002a24',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #00d1b2 0%, #00a78e 50%, #007d6b 100%);
+        }
+
+        .bookmarklet-btn {
+            background: linear-gradient(135deg, #00d1b2 0%, #00b89c 100%);
+            box-shadow: 0 4px 15px rgba(0, 209, 178, 0.4);
+            transition: all 0.3s ease;
+            cursor: grab;
+        }
+
+        .bookmarklet-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 209, 178, 0.5);
+        }
+
+        .bookmarklet-btn:active {
+            cursor: grabbing;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+
+        .step-number {
+            background: linear-gradient(135deg, #00d1b2 0%, #00a78e 100%);
+        }
+
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .code-block {
+            background: #1f2937;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="gradient-bg text-white">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span class="text-xl font-bold">Wavy Data Exporter</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="https://github.com/votre-repo/wavy-exporter" target="_blank"
+                   class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </nav>
+
+        <div class="container mx-auto px-6 py-20 text-center">
+            <div class="animate-float inline-block mb-6">
+                <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6">
+                    <svg class="w-20 h-20 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                </div>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-extrabold mb-6">
+                Exportez vos données<br>
+                <span class="text-wavy-200">Wavy</span> en un clic
+            </h1>
+            <p class="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto mb-10">
+                Outil gratuit et open-source pour télécharger toutes vos données clients, rendez-vous et ventes depuis Wavy.co
+            </p>
+            <a href="#installation" class="inline-flex items-center gap-2 bg-white text-wavy-600 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-100 transition-colors shadow-lg">
+                Commencer l'installation
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Wave separator -->
+        <div class="relative h-16">
+            <svg class="absolute bottom-0 w-full" viewBox="0 0 1440 100" preserveAspectRatio="none">
+                <path fill="#f9fafb" d="M0,50 C360,100 1080,0 1440,50 L1440,100 L0,100 Z"/>
+            </svg>
+        </div>
+    </header>
+
+    <!-- Features -->
+    <section class="py-16 container mx-auto px-6">
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="glass-card rounded-2xl p-8 shadow-lg border border-gray-100">
+                <div class="w-14 h-14 bg-wavy-100 rounded-xl flex items-center justify-center mb-6">
+                    <svg class="w-7 h-7 text-wavy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">100% Local</h3>
+                <p class="text-gray-600">Tout s'exécute dans votre navigateur. Aucune donnée n'est envoyée à un serveur externe.</p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-8 shadow-lg border border-gray-100">
+                <div class="w-14 h-14 bg-wavy-100 rounded-xl flex items-center justify-center mb-6">
+                    <svg class="w-7 h-7 text-wavy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">Export Complet</h3>
+                <p class="text-gray-600">Clients, rendez-vous, services, produits, ventes... Toutes vos données en CSV dans un ZIP.</p>
+            </div>
+
+            <div class="glass-card rounded-2xl p-8 shadow-lg border border-gray-100">
+                <div class="w-14 h-14 bg-wavy-100 rounded-xl flex items-center justify-center mb-6">
+                    <svg class="w-7 h-7 text-wavy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-3">Open Source</h3>
+                <p class="text-gray-600">Code source ouvert et transparent. Vérifiez par vous-même ce que fait l'outil.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section id="installation" class="py-16 bg-white">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Installation en 3 étapes</h2>
+                <p class="text-xl text-gray-600">Aucune installation logicielle requise. Juste un glisser-déposer.</p>
+            </div>
+
+            <!-- Bookmarklet Drag Zone -->
+            <div class="max-w-2xl mx-auto mb-16">
+                <div class="bg-gradient-to-br from-wavy-50 to-wavy-100 rounded-3xl p-8 md:p-12 text-center border-2 border-dashed border-wavy-300">
+                    <p class="text-wavy-700 font-medium mb-6 text-lg">
+                        👇 Glissez ce bouton vers votre barre de favoris 👇
+                    </p>
+
+                    <!-- The Bookmarklet Button -->
+                    <a href="javascript:(function(){var s=document.createElement('script');s.src='https://wavy-exporter.netlify.app/exporter.js?v='+Date.now();document.body.appendChild(s);})();"
+                       class="bookmarklet-btn inline-flex items-center gap-3 text-white px-8 py-4 rounded-xl font-bold text-lg"
+                       onclick="event.preventDefault(); alert('Glissez ce bouton vers votre barre de favoris!');">
+                        <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Wavy Exporter
+                    </a>
+
+                    <p class="text-wavy-600 mt-6 text-sm">
+                        💡 Astuce: Si vous ne voyez pas votre barre de favoris,<br>
+                        appuyez sur <kbd class="bg-white px-2 py-1 rounded text-xs font-mono">Ctrl+Shift+B</kbd> (Windows) ou <kbd class="bg-white px-2 py-1 rounded text-xs font-mono">Cmd+Shift+B</kbd> (Mac)
+                    </p>
+                </div>
+            </div>
+
+            <!-- Steps -->
+            <div class="max-w-4xl mx-auto grid md:grid-cols-3 gap-8">
+                <!-- Step 1 -->
+                <div class="relative">
+                    <div class="step-number w-12 h-12 rounded-full text-white font-bold text-xl flex items-center justify-center mb-6">1</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Glissez le bouton</h3>
+                    <p class="text-gray-600">Glissez le bouton "Wavy Exporter" ci-dessus vers votre barre de favoris du navigateur.</p>
+                    <div class="mt-4 bg-gray-100 rounded-lg p-4">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' fill='none'%3E%3Crect width='200' height='80' fill='%23f3f4f6'/%3E%3Crect x='10' y='10' width='180' height='30' rx='4' fill='%23e5e7eb'/%3E%3Crect x='15' y='17' width='50' height='16' rx='3' fill='%2300d1b2'/%3E%3Ctext x='40' y='28' font-family='sans-serif' font-size='8' fill='white' text-anchor='middle'%3EWavy Exporter%3C/text%3E%3Cpath d='M90 55 L95 50 L100 55' stroke='%236b7280' stroke-width='2' fill='none'/%3E%3Ctext x='95' y='70' font-family='sans-serif' font-size='10' fill='%236b7280' text-anchor='middle'%3EGlissez ici%3C/text%3E%3C/svg%3E"
+                             alt="Illustration glisser-déposer" class="w-full rounded">
+                    </div>
+                </div>
+
+                <!-- Step 2 -->
+                <div class="relative">
+                    <div class="step-number w-12 h-12 rounded-full text-white font-bold text-xl flex items-center justify-center mb-6">2</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Connectez-vous à Wavy</h3>
+                    <p class="text-gray-600">Rendez-vous sur <a href="https://backoffice.wavy.fr" target="_blank" class="text-wavy-600 hover:underline font-medium">backoffice.wavy.fr</a> et connectez-vous à votre compte salon.</p>
+                    <div class="mt-4 bg-gray-100 rounded-lg p-4">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' fill='none'%3E%3Crect width='200' height='80' fill='%23f3f4f6'/%3E%3Crect x='20' y='15' width='160' height='50' rx='4' fill='white' stroke='%23e5e7eb'/%3E%3Crect x='30' y='25' width='100' height='10' rx='2' fill='%23e5e7eb'/%3E%3Crect x='30' y='40' width='80' height='10' rx='2' fill='%23e5e7eb'/%3E%3Crect x='120' y='40' width='50' height='15' rx='3' fill='%2300d1b2'/%3E%3Ctext x='145' y='51' font-family='sans-serif' font-size='8' fill='white' text-anchor='middle'%3EConnexion%3C/text%3E%3C/svg%3E"
+                             alt="Page de connexion Wavy" class="w-full rounded">
+                    </div>
+                </div>
+
+                <!-- Step 3 -->
+                <div class="relative">
+                    <div class="step-number w-12 h-12 rounded-full text-white font-bold text-xl flex items-center justify-center mb-6">3</div>
+                    <h3 class="text-xl font-bold text-gray-900 mb-3">Cliquez sur le favori</h3>
+                    <p class="text-gray-600">Une fois connecté, cliquez sur "Wavy Exporter" dans vos favoris. L'export démarre automatiquement!</p>
+                    <div class="mt-4 bg-gray-100 rounded-lg p-4">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' fill='none'%3E%3Crect width='200' height='80' fill='%23f3f4f6'/%3E%3Crect x='10' y='10' width='180' height='60' rx='8' fill='white' stroke='%2300d1b2' stroke-width='2'/%3E%3Ccircle cx='100' cy='35' r='15' fill='%2300d1b2'/%3E%3Cpath d='M95 35 L100 40 L105 35 M100 30 L100 40' stroke='white' stroke-width='2' fill='none'/%3E%3Ctext x='100' y='60' font-family='sans-serif' font-size='10' fill='%2300d1b2' text-anchor='middle' font-weight='bold'%3EExport en cours...%3C/text%3E%3C/svg%3E"
+                             alt="Export en cours" class="w-full rounded">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Exported Section -->
+    <section class="py-16 bg-gray-50">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Données exportées</h2>
+                <p class="text-xl text-gray-600">Voici les données que l'outil peut extraire de votre compte Wavy</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">👥</div>
+                    <div class="font-semibold text-gray-900">Clients</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">📅</div>
+                    <div class="font-semibold text-gray-900">Rendez-vous</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">✂️</div>
+                    <div class="font-semibold text-gray-900">Services</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">🧴</div>
+                    <div class="font-semibold text-gray-900">Produits</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">👨‍💼</div>
+                    <div class="font-semibold text-gray-900">Collaborateurs</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">📁</div>
+                    <div class="font-semibold text-gray-900">Catégories</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">💰</div>
+                    <div class="font-semibold text-gray-900">Ventes</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">💳</div>
+                    <div class="font-semibold text-gray-900">Paiements</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">⭐</div>
+                    <div class="font-semibold text-gray-900">Avis</div>
+                </div>
+                <div class="bg-white rounded-xl p-6 text-center shadow-sm border border-gray-100">
+                    <div class="text-3xl mb-2">🏷️</div>
+                    <div class="font-semibold text-gray-900">Promotions</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Security Section -->
+    <section class="py-16 bg-white">
+        <div class="container mx-auto px-6">
+            <div class="max-w-4xl mx-auto">
+                <div class="flex flex-col md:flex-row gap-12 items-center">
+                    <div class="flex-1">
+                        <div class="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                            </svg>
+                            Sécurité & Confidentialité
+                        </div>
+                        <h2 class="text-3xl font-bold text-gray-900 mb-6">Vos données restent chez vous</h2>
+                        <div class="space-y-4 text-gray-600">
+                            <div class="flex gap-3">
+                                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <p><strong class="text-gray-900">Exécution 100% locale</strong> - Le script s'exécute entièrement dans votre navigateur. Aucun serveur intermédiaire.</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <p><strong class="text-gray-900">Aucune collecte de données</strong> - Nous ne collectons, stockons ou transmettons aucune de vos informations.</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <p><strong class="text-gray-900">Code source ouvert</strong> - Le code est entièrement visible et vérifiable sur GitHub.</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <svg class="w-6 h-6 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <p><strong class="text-gray-900">Connexion directe</strong> - L'outil utilise votre session Wavy active. Vos identifiants ne sont jamais manipulés.</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <div class="bg-gray-900 rounded-2xl p-6 text-sm">
+                            <div class="flex items-center gap-2 mb-4">
+                                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                <span class="text-gray-500 ml-2 text-xs">Comment ça marche</span>
+                            </div>
+                            <pre class="text-gray-300 overflow-x-auto"><code><span class="text-green-400">// 1. Votre navigateur charge le script</span>
+<span class="text-purple-400">fetch</span>(<span class="text-yellow-300">'exporter.js'</span>)
+
+<span class="text-green-400">// 2. Le script appelle l'API Wavy</span>
+<span class="text-green-400">//    avec VOS cookies de session</span>
+<span class="text-purple-400">fetch</span>(<span class="text-yellow-300">'api.wavy.fr/customers'</span>, {
+  <span class="text-blue-300">credentials</span>: <span class="text-yellow-300">'include'</span>
+})
+
+<span class="text-green-400">// 3. Les données sont converties</span>
+<span class="text-green-400">//    en CSV localement</span>
+<span class="text-blue-300">convertToCSV</span>(data)
+
+<span class="text-green-400">// 4. Le ZIP est créé dans</span>
+<span class="text-green-400">//    votre navigateur</span>
+<span class="text-blue-300">zip</span>.<span class="text-purple-400">generateAsync</span>()
+
+<span class="text-green-400">// 5. Téléchargement direct</span>
+<span class="text-green-400">//    sur votre ordinateur</span>
+💾 export_wavy_20240115.zip</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="py-16 bg-gray-50">
+        <div class="container mx-auto px-6">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Questions fréquentes</h2>
+            </div>
+
+            <div class="max-w-3xl mx-auto space-y-4">
+                <details class="bg-white rounded-xl shadow-sm border border-gray-100 group">
+                    <summary class="p-6 cursor-pointer font-semibold text-gray-900 flex justify-between items-center">
+                        Est-ce légal d'exporter mes données?
+                        <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-600">
+                        Oui. Conformément au RGPD (Article 20 - Droit à la portabilité), vous avez le droit de récupérer vos données personnelles dans un format structuré et lisible par machine. Cet outil vous aide simplement à exercer ce droit.
+                    </div>
+                </details>
+
+                <details class="bg-white rounded-xl shadow-sm border border-gray-100 group">
+                    <summary class="p-6 cursor-pointer font-semibold text-gray-900 flex justify-between items-center">
+                        Pourquoi utiliser un bookmarklet?
+                        <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-600">
+                        Le bookmarklet permet d'exécuter le script directement dans le contexte de votre session Wavy. C'est la méthode la plus simple et la plus sécurisée car elle ne nécessite aucune extension ni partage de vos identifiants.
+                    </div>
+                </details>
+
+                <details class="bg-white rounded-xl shadow-sm border border-gray-100 group">
+                    <summary class="p-6 cursor-pointer font-semibold text-gray-900 flex justify-between items-center">
+                        Les données sont-elles envoyées quelque part?
+                        <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-600">
+                        Non. Absolument aucune donnée ne quitte votre navigateur vers un serveur tiers. Les seules requêtes effectuées sont vers l'API officielle de Wavy (api.wavy.fr), et le ZIP est généré entièrement localement dans votre navigateur.
+                    </div>
+                </details>
+
+                <details class="bg-white rounded-xl shadow-sm border border-gray-100 group">
+                    <summary class="p-6 cursor-pointer font-semibold text-gray-900 flex justify-between items-center">
+                        Ça ne fonctionne pas, que faire?
+                        <svg class="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </summary>
+                    <div class="px-6 pb-6 text-gray-600">
+                        <ol class="list-decimal list-inside space-y-2">
+                            <li>Vérifiez que vous êtes bien connecté sur <a href="https://backoffice.wavy.fr" class="text-wavy-600 hover:underline">backoffice.wavy.fr</a></li>
+                            <li>Essayez de rafraîchir la page avant de cliquer sur le bookmarklet</li>
+                            <li>Désactivez temporairement votre bloqueur de publicités</li>
+                            <li>Essayez avec un autre navigateur (Chrome, Firefox, Edge)</li>
+                            <li>Ouvrez la console développeur (F12) pour voir les erreurs éventuelles</li>
+                        </ol>
+                    </div>
+                </details>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="gradient-bg py-16">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-3xl md:text-4xl font-bold text-white mb-6">Prêt à exporter vos données?</h2>
+            <p class="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+                Récupérez toutes vos données Wavy en quelques secondes. Gratuit et sans engagement.
+            </p>
+            <a href="#installation" class="inline-flex items-center gap-2 bg-white text-wavy-600 px-8 py-4 rounded-xl font-semibold text-lg hover:bg-gray-100 transition-colors shadow-lg">
+                Commencer maintenant
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+                </svg>
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-gray-400 py-12">
+        <div class="container mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-6">
+                <div class="flex items-center gap-3">
+                    <svg class="w-6 h-6 text-wavy-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    <span class="text-white font-semibold">Wavy Data Exporter</span>
+                </div>
+                <div class="flex items-center gap-6">
+                    <a href="https://github.com/votre-repo/wavy-exporter" target="_blank" class="hover:text-white transition-colors">
+                        GitHub
+                    </a>
+                    <a href="https://github.com/votre-repo/wavy-exporter/issues" target="_blank" class="hover:text-white transition-colors">
+                        Signaler un bug
+                    </a>
+                </div>
+                <p class="text-sm">
+                    Outil non affilié à Wavy.co. Projet open-source sous licence MIT.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
