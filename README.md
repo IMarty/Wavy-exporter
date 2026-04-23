@@ -31,7 +31,7 @@ Le projet est configuré pour être hébergé sur `wavy-exporter.netlify.app`.
    git add .
    git commit -m "Initial commit"
    git branch -M main
-   git remote add origin https://github.com/VOTRE-USERNAME/wavy-exporter.git
+   git remote add origin https://github.com/IMarty/Wavy-exporter.git
    git push -u origin main
    ```
 
@@ -63,7 +63,7 @@ Le projet est configuré pour être hébergé sur `wavy-exporter.netlify.app`.
 1. Activez GitHub Pages dans Settings > Pages
 2. Mettez à jour l'URL dans `index.html` :
    ```javascript
-   s.src='https://VOTRE-USERNAME.github.io/wavy-exporter/exporter.js?v='+Date.now();
+   s.src='https://IMarty.github.io/Wavy-exporter/exporter.js?v='+Date.now();
    ```
 
 ### Option alternative : Serveur personnel
@@ -74,6 +74,31 @@ Placez simplement les fichiers sur n'importe quel serveur web statique (Apache, 
 # Exemple avec un simple serveur Python
 python -m http.server 8000
 ```
+
+## Structure d'export recommandée
+
+L'API Wavy retourne de nombreux objets imbriqués. Plutôt que de fournir un tas de fichiers JSON au client, voici la structure ZIP conseillée — un CSV par domaine métier, avec les données aplaties.
+
+```
+export_wavy_YYYY-MM-DD.zip
+├── clients.csv              # Fiche client : id, prénom, nom, e-mail, téléphone, genre, adresse, RGPD, stats (totalSpent, visitNb, ticketAverage)
+├── visites.csv              # Une ligne par visite : id, date, statut, client_id, total, mode_paiement, remise, source
+├── lignes_visite.csv        # Détail des articles par visite : visite_id, article_titre, catégorie, quantité, prix_unitaire, prestataire
+├── rendez_vous.csv          # Rendez-vous à venir (statut APPOINTMENT) : id, date, client_id, prestataire_id, durée, source
+├── articles.csv             # Catalogue : id, titre, type (service/produit/forfait), catégorie, durée, prix, TVA, réservation_en_ligne
+├── personnel.csv            # Membres du personnel : id, prénom, nom, e-mail, rôle, horaires_JSON
+├── programmes_fidelite.csv  # Programmes : id, nom, type (jackpot/carte_cadeau), valeur, unité, expiration_jours
+├── credits.csv              # Crédits clients : id, client_id, programme_id, montant_initial, montant_restant, expiration
+├── remises.csv              # Remises : id, nom, type (absolu/pourcentage), valeur, articles_concernés
+├── campagnes_sms.csv        # Campagnes : id, titre, message, destinataires, envoyé_le, coût, ROI
+└── fermetures_caisse.csv    # Clôtures journalières : date, statut (OPEN/CLOSED), total_CB, total_espèces, total_chèques
+```
+
+**Règles d'aplatissement :**
+- Les objets imbriqués (ex. : `appointment.staff`) sont exportés sous forme de colonnes séparées : `prestataire_id`, `prestataire_prenom`, `prestataire_nom`.
+- Les tableaux de plusieurs entrées (ex. : plusieurs modes de paiement pour une visite) sont soit concaténés avec `;` dans une colonne, soit éclatés dans un fichier `lignes_*` dédié.
+- Les identifiants MongoDB (`_id`) sont conservés comme clés de jointure entre fichiers.
+- Les dates sont converties en format `YYYY-MM-DD HH:MM:SS` pour une compatibilité maximale avec Excel.
 
 ## Configuration des Endpoints
 
@@ -144,6 +169,6 @@ Cet outil n'est pas affilié à Wavy.co. Il s'agit d'un projet indépendant cré
 
 Si vous rencontrez des problèmes :
 
-1. Vérifiez que vous êtes connecté sur [backoffice.wavy.fr](https://backoffice.wavy.fr)
+1. Vérifiez que vous êtes connecté sur [backoffice.wavy.fr](https://backoffice.wavy.fr) ou [app.wavy.co](https://app.wavy.co)
 2. Ouvrez la console développeur (F12) pour voir les erreurs
-3. [Ouvrez une issue](https://github.com/VOTRE-USERNAME/wavy-exporter/issues) sur GitHub
+3. [Ouvrez une issue](https://github.com/IMarty/Wavy-exporter/issues) sur GitHub

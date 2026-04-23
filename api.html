@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Référence API Wavy — Documentation non officielle de l'API privée</title>
+    <meta name="description" content="Documentation non officielle de l'API privée de Wavy.fr, obtenue par rétro-ingénierie. 43 endpoints documentés : clients, rendez-vous, articles, personnel, fidélité et plus.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://wavy-exporter.netlify.app/api.html">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://wavy-exporter.netlify.app/api.html">
+    <meta property="og:title" content="Référence API Wavy — Documentation non officielle">
+    <meta property="og:description" content="43 endpoints documentés de l'API privée de Wavy.fr. Authentification SuperTokens, pagination, schémas complets.">
+    <meta property="og:site_name" content="Wavy Exporter">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        wavy: {
+                            50: '#e6faf7', 100: '#ccf5ef', 200: '#99ebdf',
+                            300: '#66e0cf', 400: '#33d6bf', 500: '#00d1b2',
+                            600: '#00a78e', 700: '#007d6b', 800: '#005447', 900: '#002a24',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+
+        .method-get    { background: #dcfce7; color: #166534; }
+        .method-post   { background: #dbeafe; color: #1e40af; }
+        .method-put    { background: #fef9c3; color: #854d0e; }
+        .method-patch  { background: #fce7f3; color: #9d174d; }
+        .method-delete { background: #fee2e2; color: #991b1b; }
+
+        .endpoint-card { transition: box-shadow 0.15s; }
+        .endpoint-card:hover { box-shadow: 0 0 0 2px #00d1b2; }
+        .endpoint-card.open { box-shadow: 0 0 0 2px #00d1b2; }
+
+        .schema-key   { color: #7c3aed; }
+        .schema-type  { color: #0891b2; }
+        .schema-req   { color: #dc2626; font-size: 0.65rem; vertical-align: super; }
+        .schema-desc  { color: #6b7280; }
+
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] .chevron { transform: rotate(90deg); }
+        .chevron { transition: transform 0.15s; }
+
+        #sidebar { min-height: calc(100vh - 64px); }
+        .sidebar-link { border-left: 2px solid transparent; }
+        .sidebar-link.active, .sidebar-link:hover { border-left-color: #00d1b2; background: #e6faf7; color: #007d6b; }
+
+        .tag-section:target .tag-header { color: #00a78e; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "name": "Référence API Wavy — Documentation non officielle",
+        "description": "Documentation non officielle de l'API privée de Wavy.fr. 43 endpoints couvrant clients, rendez-vous, articles, personnel, fidélité et finances.",
+        "url": "https://wavy-exporter.netlify.app/api.html",
+        "author": {
+            "@type": "Person",
+            "name": "IMarty"
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "Wavy Exporter"
+        }
+    }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+<!-- Top bar -->
+<header class="sticky top-0 z-40 h-16 flex items-center bg-white border-b border-gray-200 px-6 gap-4 shadow-sm">
+    <a href="index.html" class="flex items-center gap-2 text-wavy-600 font-semibold hover:text-wavy-700">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Wavy Exporter
+    </a>
+    <span class="text-gray-300">/</span>
+    <span class="font-semibold text-gray-900">Référence API</span>
+
+    <div class="ml-auto flex items-center gap-3">
+        <span id="endpoint-count" class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full mono"></span>
+        <span class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full font-medium">Non officielle</span>
+        <a href="openapi.json" download
+           class="flex items-center gap-1.5 text-sm text-wavy-600 hover:text-wavy-700 font-medium transition-colors border border-wavy-200 px-3 py-1.5 rounded-lg hover:bg-wavy-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            openapi.json
+        </a>
+        <a href="https://github.com/IMarty/Wavy-exporter" target="_blank" rel="noopener"
+           class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            GitHub
+        </a>
+    </div>
+</header>
+
+<div class="flex">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-64 flex-shrink-0 bg-white border-r border-gray-200 sticky top-16 overflow-y-auto hidden md:block">
+        <div class="p-4">
+            <input id="search" type="text" placeholder="Rechercher un endpoint…"
+                   class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-wavy-300 bg-gray-50">
+        </div>
+        <nav id="sidebar-nav" class="pb-8"></nav>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 max-w-4xl mx-auto px-6 py-8 min-w-0">
+
+        <!-- Overview -->
+        <section class="mb-10">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">API Wavy — Documentation non officielle</h1>
+            <p class="text-gray-500 mb-4">
+                Documentation de <code class="bg-gray-100 px-1 rounded text-sm">api.wavy.fr</code> obtenue par rétro-ingénierie.
+                Cette référence est <strong>non officielle</strong> — les endpoints, schémas et comportements peuvent changer sans préavis.
+                L'authentification utilise les cookies de session du navigateur (<code class="bg-gray-100 px-1 rounded text-sm">credentials: 'include'</code>)
+                ainsi que l'en-tête <code class="bg-gray-100 px-1 rounded text-sm">rid: anti-csrf</code>.
+            </p>
+            <div class="flex flex-wrap gap-3 text-sm">
+                <div class="bg-gray-100 rounded-lg px-3 py-2">
+                    <span class="text-gray-500">Base URL</span>
+                    <code class="ml-2 text-gray-900">https://api.wavy.fr</code>
+                </div>
+                <div class="bg-gray-100 rounded-lg px-3 py-2">
+                    <span class="text-gray-500">Auth</span>
+                    <code class="ml-2 text-gray-900">Cookie session + en-tête rid</code>
+                </div>
+                <div class="bg-gray-100 rounded-lg px-3 py-2">
+                    <span class="text-gray-500">Format</span>
+                    <code class="ml-2 text-gray-900">JSON</code>
+                </div>
+            </div>
+        </section>
+
+        <!-- Endpoints rendered here -->
+        <div id="api-docs">
+            <div class="flex items-center justify-center py-20 text-gray-400">
+                <svg class="animate-spin w-6 h-6 mr-3" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                </svg>
+                Chargement de la documentation…
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// OAS UTILITIES
+// ─────────────────────────────────────────────
+
+function resolveRef(ref, spec) {
+    if (!ref.startsWith('#/')) return null;
+    const parts = ref.slice(2).split('/');
+    let current = spec;
+    for (const part of parts) {
+        if (!current) return null;
+        current = current[part];
+    }
+    return current;
+}
+
+function schemaTypeStr(schema, spec) {
+    if (!schema) return 'unknown';
+    if (schema.$ref) {
+        const resolved = resolveRef(schema.$ref, spec);
+        if (resolved) return schemaTypeStr(resolved, spec);
+        return schema.$ref.split('/').pop();
+    }
+    if (schema.type === 'array') {
+        return schemaTypeStr(schema.items, spec) + '[]';
+    }
+    if (schema.type === 'string' && schema.format) return `string (${schema.format})`;
+    if (schema.type === 'string' && schema.enum) return `enum — ${schema.enum.map(e => `'${e}'`).join(' | ')}`;
+    if (schema.type) return schema.type;
+    return 'object';
+}
+
+function flattenSchema(schema, spec, prefix = '', depth = 0) {
+    if (!schema || depth > 3) return [];
+    const fields = [];
+
+    if (schema.$ref) {
+        schema = resolveRef(schema.$ref, spec) || {};
+    }
+
+    if (schema.allOf) {
+        schema.allOf.forEach(s => {
+            fields.push(...flattenSchema(s, spec, prefix, depth));
+        });
+        return fields;
+    }
+
+    if (schema.properties) {
+        Object.entries(schema.properties).forEach(([key, prop]) => {
+            const fullKey = prefix ? `${prefix}.${key}` : key;
+            const required = schema.required && schema.required.includes(key);
+            const resolved = prop.$ref ? (resolveRef(prop.$ref, spec) || prop) : prop;
+            const type = schemaTypeStr(prop, spec);
+            const desc = resolved.description || prop.description || '';
+            fields.push({ key: fullKey, type, description: desc, required });
+
+            if ((prop.type === 'object' || prop.$ref) && depth < 2) {
+                fields.push(...flattenSchema(prop, spec, fullKey, depth + 1));
+            }
+        });
+    }
+
+    return fields;
+}
+
+function getExample(op) {
+    const resp = op.responses && op.responses['200'];
+    if (!resp) return null;
+    const content = resp.content && resp.content['application/json'];
+    return content && content.example ? JSON.stringify(content.example, null, 2) : null;
+}
+
+function resolveParam(p, spec) {
+    if (p.$ref) return resolveRef(p.$ref, spec) || p;
+    return p;
+}
+
+function adaptOas(spec) {
+    const endpoints = [];
+    const paths = spec.paths || {};
+
+    Object.entries(paths).forEach(([path, pathItem]) => {
+        Object.entries(pathItem).forEach(([method, op]) => {
+            if (method.startsWith('x-') || method === 'parameters') return;
+
+            const tag = (op.tags && op.tags[0]) || 'default';
+            const queryParams = [];
+            const pathParams = [];
+            const headerParams = [];
+
+            (op.parameters || []).forEach(p => {
+                const resolved = resolveParam(p, spec);
+                const param = {
+                    name: resolved.name,
+                    type: schemaTypeStr(resolved.schema, spec),
+                    required: resolved.required || false,
+                    description: resolved.description || ''
+                };
+                if (resolved.in === 'query') queryParams.push(param);
+                else if (resolved.in === 'path') pathParams.push(param);
+                else if (resolved.in === 'header') headerParams.push(param);
+            });
+
+            const responses = [];
+            Object.entries(op.responses || {}).forEach(([code, resp]) => {
+                let schema = null;
+                if (resp.content && resp.content['application/json'] && resp.content['application/json'].schema) {
+                    schema = flattenSchema(resp.content['application/json'].schema, spec);
+                }
+                responses.push({ code: parseInt(code), description: resp.description || '', schema });
+            });
+
+            endpoints.push({
+                tag,
+                method: method.toUpperCase(),
+                path,
+                summary: op.summary || '',
+                description: op.description || '',
+                status: op['x-status'] || 'unknown',
+                queryParams,
+                pathParams,
+                headers: headerParams,
+                responses,
+                example: getExample(op)
+            });
+        });
+    });
+
+    return endpoints;
+}
+
+// ─────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────
+
+function methodBadge(method) {
+    return `<span class="method-${method.toLowerCase()} mono text-xs font-bold px-2 py-0.5 rounded uppercase">${method}</span>`;
+}
+
+function statusBadge(status) {
+    const map = {
+        confirmed: ['bg-green-100 text-green-700', 'Confirmé'],
+        inferred:  ['bg-yellow-100 text-yellow-700', 'Déduit'],
+        unknown:   ['bg-gray-100 text-gray-500', 'Inconnu'],
+    };
+    const [cls, label] = map[status] || map.unknown;
+    return `<span class="text-xs px-2 py-0.5 rounded ${cls}">${label}</span>`;
+}
+
+function renderSchemaFields(fields) {
+    if (!fields || fields.length === 0) return '';
+    return `
+        <table class="w-full text-sm border-collapse mt-2">
+            <thead>
+                <tr class="text-left text-xs text-gray-400 border-b border-gray-100">
+                    <th class="pb-1 pr-4 font-medium">Champ</th>
+                    <th class="pb-1 pr-4 font-medium">Type</th>
+                    <th class="pb-1 font-medium">Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${fields.map(f => `
+                    <tr class="border-b border-gray-50">
+                        <td class="py-1 pr-4 schema-key mono text-xs">${f.key}${f.required ? '<span class="schema-req">requis</span>' : ''}</td>
+                        <td class="py-1 pr-4 schema-type mono text-xs">${f.type}</td>
+                        <td class="py-1 pr-4 schema-desc text-xs">${f.description}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>`;
+}
+
+function renderParams(params, title) {
+    if (!params || params.length === 0) return '';
+    return `
+        <div class="mt-4">
+            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">${title}</div>
+            <table class="w-full text-sm border-collapse">
+                <thead>
+                    <tr class="text-left text-xs text-gray-400 border-b border-gray-100">
+                        <th class="pb-1 pr-4 font-medium w-36">Nom</th>
+                        <th class="pb-1 pr-4 font-medium w-28">Type</th>
+                        <th class="pb-1 font-medium">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${params.map(p => `
+                        <tr class="border-b border-gray-50">
+                            <td class="py-1.5 pr-4">
+                                <code class="schema-key text-xs">${p.name}</code>
+                                ${p.required ? '<span class="schema-req">requis</span>' : ''}
+                            </td>
+                            <td class="py-1.5 pr-4 schema-type mono text-xs">${p.type}</td>
+                            <td class="py-1.5 schema-desc text-xs">${p.description}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+function renderEndpoint(ep) {
+    const id = `ep-${ep.method.toLowerCase()}-${ep.path.replace(/[^a-z0-9]/gi, '-')}`;
+    const responsesHtml = ep.responses.map(r => `
+        <div class="flex items-start gap-3 py-1.5 border-b border-gray-50 last:border-0">
+            <code class="mono text-xs font-bold ${r.code < 300 ? 'text-green-600' : r.code < 500 ? 'text-yellow-600' : 'text-red-600'} w-10 flex-shrink-0">${r.code}</code>
+            <div class="flex-1">
+                <span class="text-sm text-gray-600">${r.description}</span>
+                ${r.schema && r.schema.length ? renderSchemaFields(r.schema) : ''}
+            </div>
+        </div>
+    `).join('');
+
+    const exampleHtml = ep.example ? `
+        <div class="mt-4">
+            <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Exemple de réponse</div>
+            <pre class="bg-gray-900 text-gray-200 rounded-lg p-4 text-xs overflow-x-auto leading-relaxed">${ep.example.trim()}</pre>
+        </div>
+    ` : '';
+
+    return `
+        <details id="${id}" class="endpoint-card bg-white rounded-xl border border-gray-200 mb-3 overflow-hidden group">
+            <summary class="flex items-center gap-3 px-4 py-3.5 cursor-pointer select-none">
+                <svg class="chevron w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+                ${methodBadge(ep.method)}
+                <code class="mono text-sm font-medium text-gray-800 flex-1 truncate">${ep.path}</code>
+                <span class="text-sm text-gray-500 hidden sm:block shrink-0 max-w-xs truncate">${ep.summary}</span>
+                ${statusBadge(ep.status)}
+            </summary>
+            <div class="px-5 pb-5 border-t border-gray-100 pt-4">
+                ${ep.description ? `<p class="text-sm text-gray-600 mb-4">${ep.description}</p>` : ''}
+
+                ${ep.pathParams.length ? renderParams(ep.pathParams, 'Paramètres de chemin') : ''}
+                ${ep.headers.length ? renderParams(ep.headers, 'En-têtes requis') : ''}
+                ${renderParams(ep.queryParams, 'Paramètres de requête')}
+
+                <div class="mt-4">
+                    <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Réponses</div>
+                    <div class="border border-gray-100 rounded-lg px-3 divide-y divide-gray-50">
+                        ${responsesHtml || '<p class="py-2 text-sm text-gray-400">Aucune réponse documentée</p>'}
+                    </div>
+                </div>
+
+                ${exampleHtml}
+            </div>
+        </details>
+    `;
+}
+
+function renderSidebar(tags, endpoints) {
+    const nav = document.getElementById('sidebar-nav');
+    nav.innerHTML = tags.map(tag => {
+        const slug = tag.name.toLowerCase().replace(/\s+/g, '-');
+        const count = endpoints.filter(e => e.tag === tag.name).length;
+        if (count === 0) return '';
+        return `
+            <div class="mb-1">
+                <a href="#tag-${slug}"
+                   class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-gray-600 transition-colors">
+                    <span>${tag.name}</span>
+                    <span class="mono text-xs text-gray-400">${count}</span>
+                </a>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderAll(endpoints, tags) {
+    const docs = document.getElementById('api-docs');
+
+    // Group endpoints by original tag name (not slug)
+    const byTag = {};
+    endpoints.forEach(ep => {
+        if (!byTag[ep.tag]) byTag[ep.tag] = [];
+        byTag[ep.tag].push(ep);
+    });
+
+    docs.innerHTML = tags.map(tag => {
+        const slug = tag.name.toLowerCase().replace(/\s+/g, '-');
+        const eps = byTag[tag.name] || [];
+        if (eps.length === 0) return '';
+        return `
+            <section id="tag-${slug}" class="tag-section mb-10 scroll-mt-20">
+                <div class="tag-header flex items-center gap-3 mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">${tag.name}</h2>
+                    <span class="mono text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">${eps.length}</span>
+                </div>
+                <p class="text-sm text-gray-500 mb-4">${tag.description || ''}</p>
+                ${eps.map(renderEndpoint).join('')}
+            </section>
+        `;
+    }).join('');
+
+    document.getElementById('endpoint-count').textContent = `${endpoints.length} endpoints`;
+}
+
+function filterEndpoints(query, allEndpoints, tags) {
+    if (!query) return renderAll(allEndpoints, tags);
+    const q = query.toLowerCase();
+    const filtered = allEndpoints.filter(ep =>
+        ep.path.toLowerCase().includes(q) ||
+        ep.summary.toLowerCase().includes(q) ||
+        ep.method.toLowerCase().includes(q) ||
+        ep.tag.toLowerCase().includes(q)
+    );
+    renderAll(filtered, tags);
+}
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+
+async function init() {
+    try {
+        const resp = await fetch('openapi.json');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const spec = await resp.json();
+
+        const tags = spec.tags || [];
+        const endpoints = adaptOas(spec);
+
+        renderSidebar(tags, endpoints);
+        renderAll(endpoints, tags);
+
+        document.getElementById('search').addEventListener('input', e =>
+            filterEndpoints(e.target.value, endpoints, tags)
+        );
+
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.id.replace('tag-', '');
+                    document.querySelectorAll('.sidebar-link').forEach(a => {
+                        a.classList.toggle('active', a.getAttribute('href') === `#tag-${id}`);
+                    });
+                }
+            });
+        }, { threshold: 0.2, rootMargin: '-64px 0px 0px 0px' });
+
+        const mutObs = new MutationObserver(() => {
+            document.querySelectorAll('.tag-section').forEach(s => observer.observe(s));
+        });
+        mutObs.observe(document.getElementById('api-docs'), { childList: true });
+
+        document.querySelectorAll('.tag-section').forEach(s => observer.observe(s));
+
+    } catch (err) {
+        document.getElementById('api-docs').innerHTML = `
+            <div class="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+                <p class="text-red-700 font-medium">Impossible de charger la documentation</p>
+                <p class="text-red-500 text-sm mt-2">${err.message}</p>
+                <p class="text-gray-500 text-sm mt-2">Servez les fichiers via un serveur HTTP local : <code class="bg-gray-100 px-1 rounded">python3 -m http.server</code></p>
+            </div>`;
+    }
+}
+
+init();
+</script>
+</body>
+</html>
