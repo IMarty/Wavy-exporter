@@ -1036,12 +1036,15 @@
                 document.getElementById('wavy-step-label').textContent = txt;
             },
             log(msg, type = 'info') {
+                // After showSummary replaces the body, the original #wavy-logs is gone and only
+                // #wavy-logs-copy (inside the collapsible) remains. Write to whichever exists.
+                const logs = document.getElementById('wavy-logs') || document.getElementById('wavy-logs-copy');
+                if (!logs) return;
                 const el = document.createElement('div');
                 el.className = `wavy-log wavy-log-${type}`;
                 const t = new Date().toLocaleTimeString('fr-FR');
                 const icons = { info: 'ℹ', success: '✓', error: '✗', warning: '⚠', cache: '📦' };
                 el.textContent = `[${t}] ${icons[type] || ''} ${msg}`;
-                const logs = document.getElementById('wavy-logs');
                 logs.appendChild(el);
                 logs.scrollTop = logs.scrollHeight;
             },
@@ -1137,13 +1140,36 @@
                 body.querySelectorAll('[data-dl]').forEach(btn => {
                     btn.addEventListener('click', async () => {
                         const fmt = btn.dataset.dl;
-                        body.querySelectorAll('[data-dl]').forEach(b => b.disabled = true);
-                        btn.style.opacity = '0.6';
-                        btn.textContent = 'Compression…';
-                        try { await onDownload(fmt); }
-                        finally {
-                            body.querySelectorAll('[data-dl]').forEach(b => b.disabled = false);
-                            btn.style.opacity = '';
+                        const originalHtml = btn.innerHTML;
+                        body.querySelectorAll('[data-dl]').forEach(b => { b.disabled = true; b.style.opacity = '0.4'; });
+                        btn.style.opacity = '1';
+                        btn.innerHTML = `
+                            <div style="font-size:12px;font-weight:600;margin-bottom:6px" data-phase>Préparation…</div>
+                            <div style="height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden">
+                                <div style="height:100%;background:${TEAL};width:0%;transition:width .15s" data-bar></div>
+                            </div>
+                            <div style="font-size:11px;color:#6b7280;margin-top:4px" data-pct>0 %</div>
+                        `;
+                        const phaseEl = btn.querySelector('[data-phase]');
+                        const barEl   = btn.querySelector('[data-bar]');
+                        const pctEl   = btn.querySelector('[data-pct]');
+                        const phaseLabels = {
+                            serialisation: 'Préparation des fichiers',
+                            compression:   'Compression ZIP',
+                            done:          'Prêt — téléchargement…'
+                        };
+                        const onProgress = (phase, pct) => {
+                            phaseEl.textContent = phaseLabels[phase] || phase;
+                            barEl.style.width = `${pct}%`;
+                            pctEl.textContent = `${Math.round(pct)} %`;
+                        };
+                        try {
+                            await onDownload(fmt, onProgress);
+                        } finally {
+                            setTimeout(() => {
+                                btn.innerHTML = originalHtml;
+                                body.querySelectorAll('[data-dl]').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+                            }, 800);
                         }
                     });
                 });
@@ -1254,16 +1280,25 @@
                     const ttl = CACHE_TTL[grp.id] || 3_600_000;
                     let data;
 
-                    const onProgress = (done, total) => {
-                        ui.setSubstep(total != null ? `${done} / ${total} récupérés` : `${done} récupérés…`);
-                    };
+                    // Unified ticker + progress: the ticker fills the "dead time" between pages
+                    // with elapsed seconds. As soon as a real page arrives, it's replaced with the
+                    // record count + current elapsed seconds, then the ticker restarts to count
+                    // the gap before the next page.
+                    let tick = null;
+                    let tLabel = 'requête en cours';
+                    const t0 = Date.now();
+                    const secs = () => Math.round((Date.now() - t0) / 1000);
+                    const renderTick = () => ui.setSubstep(`${tLabel}… ${secs()}s`);
                     const startTicker = (label) => {
-                        const t0 = Date.now();
-                        ui.setSubstep(`${label}…`);
-                        return setInterval(() => {
-                            const s = Math.round((Date.now() - t0) / 1000);
-                            ui.setSubstep(`${label}… ${s}s`);
-                        }, 1000);
+                        tLabel = label;
+                        if (tick) clearInterval(tick);
+                        renderTick();
+                        tick = setInterval(renderTick, 1000);
+                        return tick;
+                    };
+                    const onProgress = (done, total) => {
+                        tLabel = total != null ? `${done} / ${total} récupérés` : `${done} récupérés`;
+                        renderTick();
                     };
 
                     if (useCache && !grp.requiresDateRange) {
@@ -1347,20 +1382,35 @@
         };
         const date = todayISO().replace(/-/g, '');
 
-        const buildAndDownload = async (format) => {
+        const buildAndDownload = async (format, onProgress) => {
             const JSZip = await loadJSZip();
             ui.log(`Compression ZIP (${format})…`, 'info');
             const zip = new JSZip();
+            // Serialisation phase: also report progress here since it dominates for large datasets.
+            const serialisationSteps = entries.length * ((format === 'both') ? 2 : 1);
+            let step = 0;
             for (const e of entries) {
                 if (format === 'csv' || format === 'both') {
                     zip.file(`csv/${e.baseName}.csv`, toCSV(e.data));
+                    step++;
+                    if (onProgress) onProgress('serialisation', (step / serialisationSteps) * 30);
                 }
                 if (format === 'json' || format === 'both') {
                     zip.file(`json/${e.baseName}.json`, JSON.stringify(e.data, null, 2));
+                    step++;
+                    if (onProgress) onProgress('serialisation', (step / serialisationSteps) * 30);
                 }
+                // Yield back to the browser so the UI thread can paint progress updates.
+                await new Promise(r => setTimeout(r, 0));
             }
             zip.file('_rapport.json', JSON.stringify({ ...report, format }, null, 2));
-            const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } });
+
+            const blob = await zip.generateAsync(
+                { type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 9 } },
+                (meta) => { if (onProgress) onProgress('compression', 30 + (meta.percent * 0.7)); }
+            );
+            if (onProgress) onProgress('done', 100);
+
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
