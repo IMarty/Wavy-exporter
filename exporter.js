@@ -21,7 +21,7 @@
             desc: 'Coordonnées, consentements RGPD et statistiques de visite',
             fields: 'prénom, nom, e-mail, téléphone, genre, ville, dépenses totales, nb visites…',
             defaultOn: true,
-            fetch: (shopID) => fetchCorePaginated(`/v2/core/${shopID}/v1/clients`, 'rows', 'page', 'pageSize', 500)
+            fetch: (shopID, opts, onProgress) => fetchCorePaginated(`/v2/core/${shopID}/v1/clients`, 'rows', 'page', 'pageSize', 500, onProgress)
         },
         {
             id: 'visites',
@@ -55,8 +55,8 @@
             fields: 'titre, type (service/produit/forfait), catégorie, durée, prix, TVA…',
             defaultOn: true,
             incremental: true,
-            fetch:       (shopID)        => fetchFeathers(`/shops/${shopID}/items`),
-            fetchSince:  (shopID, since) => fetchFeathersSince(`/shops/${shopID}/items`, since)
+            fetch:       (shopID, opts, onProgress)  => fetchFeathers(`/shops/${shopID}/items`, onProgress),
+            fetchSince:  (shopID, since, onProgress) => fetchFeathersSince(`/shops/${shopID}/items`, since, onProgress)
         },
         {
             id: 'personnel',
@@ -93,8 +93,8 @@
             fields: 'client, programme, montant initial, solde restant, expiration…',
             defaultOn: true,
             incremental: true,
-            fetch:       (shopID)        => fetchFeathers(`/shops/${shopID}/credits`),
-            fetchSince:  (shopID, since) => fetchFeathersSince(`/shops/${shopID}/credits`, since)
+            fetch:       (shopID, opts, onProgress)  => fetchFeathers(`/shops/${shopID}/credits`, onProgress),
+            fetchSince:  (shopID, since, onProgress) => fetchFeathersSince(`/shops/${shopID}/credits`, since, onProgress)
         },
         {
             id: 'caisses',
@@ -112,7 +112,7 @@
             desc: 'Campagnes marketing SMS et statistiques de retour sur investissement',
             fields: 'titre, message, destinataires, date envoi, coût, ROI, taux de conversion…',
             defaultOn: true,
-            fetch: (shopID) => fetchCorePaginated(`/v2/marketing/${shopID}/v1/sms-campaigns`, 'rows', 'page', 'pageSize', 50)
+            fetch: (shopID, opts, onProgress) => fetchCorePaginated(`/v2/marketing/${shopID}/v1/sms-campaigns`, 'rows', 'page', 'pageSize', 50, onProgress)
         }
     ];
 
@@ -212,7 +212,7 @@
             : { from: dateOffset(days), to: todayISO() };
     }
 
-    function splitPeriod(from, to, chunk) {
+    function splitPeriod(from, to, chunk, reverse = false) {
         const periods = [];
         let cur = new Date(from);
         const end = new Date(to);
@@ -238,7 +238,7 @@
                 label
             });
         }
-        return periods;
+        return reverse ? periods.reverse() : periods;
     }
 
     // ─────────────────────────────────────────────
@@ -265,7 +265,7 @@
         return [];
     }
 
-    async function fetchFeathers(path) {
+    async function fetchFeathers(path, onProgress) {
         const all = [];
         let skip = 0;
         const limit = 200;
@@ -273,7 +273,9 @@
         while (true) {
             const data = await apiGet(`${path}${sep}$limit=${limit}&$skip=${skip}`);
             const items = Array.isArray(data) ? data : (data.data || []);
+            const total = !Array.isArray(data) && typeof data.total === 'number' ? data.total : null;
             all.push(...items);
+            if (onProgress) onProgress(all.length, total);
             if (items.length < limit) break;
             skip += limit;
             await sleep(DELAY);
@@ -281,12 +283,12 @@
         return dedupe(all);
     }
 
-    async function fetchFeathersSince(path, sinceISO) {
+    async function fetchFeathersSince(path, sinceISO, onProgress) {
         const sep = path.includes('?') ? '&' : '?';
-        return fetchFeathers(`${path}${sep}updatedAt[$gt]=${encodeURIComponent(sinceISO)}`);
+        return fetchFeathers(`${path}${sep}updatedAt[$gt]=${encodeURIComponent(sinceISO)}`, onProgress);
     }
 
-    async function fetchCorePaginated(path, rowKey = 'rows', pageKey = 'page', sizeKey = 'pageSize', pageSize = 500) {
+    async function fetchCorePaginated(path, rowKey = 'rows', pageKey = 'page', sizeKey = 'pageSize', pageSize = 500, onProgress) {
         const all = [];
         let page = 0;
         const sep = path.includes('?') ? '&' : '?';
@@ -294,7 +296,10 @@
             const data = await apiGet(`${path}${sep}${pageKey}=${page}&${sizeKey}=${pageSize}`);
             const rows = data[rowKey] || (Array.isArray(data) ? data : []);
             all.push(...rows);
-            const more = data.totalPages != null ? page + 1 < data.totalPages : rows.length >= pageSize;
+            const totalPages = data.totalPages != null ? data.totalPages : null;
+            const totalItems = data.total != null ? data.total : (totalPages != null ? totalPages * pageSize : null);
+            if (onProgress) onProgress(all.length, totalItems, page + 1, totalPages);
+            const more = totalPages != null ? page + 1 < totalPages : rows.length >= pageSize;
             if (!more) break;
             page++;
             await sleep(DELAY);
@@ -745,9 +750,9 @@
                     <div class="wavy-date-row" style="margin-top:8px">
                         <label style="font-size:12px;color:#6b7280;flex-shrink:0">Découpage :</label>
                         <select class="wavy-date-select" id="wavy-chunk-${g.id}">
-                            <option value="none"${g.futureMode ? ' selected' : ''}>Fichier unique</option>
+                            <option value="none">Fichier unique</option>
                             <option value="year">Par année</option>
-                            <option value="month"${g.futureMode ? '' : ' selected'}>Par mois</option>
+                            <option value="month" selected>Par mois</option>
                         </select>
                     </div>
                 </div>` : ''}
@@ -1159,10 +1164,16 @@
                 let groupRecords = 0, groupSize = 0, groupFiles = 0, groupFromCache = false;
 
                 if (grp.requiresDateRange && opts.chunk && opts.chunk !== 'none') {
-                    const periods = splitPeriod(opts.from, opts.to, opts.chunk);
+                    // Past mode: iterate backwards from most recent. Future mode: forward from today.
+                    // Early termination after N consecutive empty periods (shop probably didn't exist yet / no more bookings ahead).
+                    const periods = splitPeriod(opts.from, opts.to, opts.chunk, !grp.futureMode);
+                    const emptyLimit = opts.chunk === 'year' ? 2 : 6;
+                    let consecutiveEmpty = 0;
+                    let stoppedEarly = false;
+
                     for (let p = 0; p < periods.length; p++) {
                         const period = periods[p];
-                        ui.setSubstep(`${period.label} · ${p + 1} / ${periods.length}`);
+                        ui.setSubstep(`${period.label} · ${p + 1} / ${periods.length} · ${groupRecords} récupérés`);
                         const chunkTTL = isPastChunk(period.label) ? Infinity : 3_600_000;
                         const ck = cacheKey(shopID, grp.id, period.label);
                         const cached = useCache ? loadFromCache(ck, chunkTTL) : null;
@@ -1184,15 +1195,28 @@
                             groupRecords += unique.length;
                             groupSize += byteSize(content);
                             groupFiles++;
+                            consecutiveEmpty = 0;
+                        } else {
+                            consecutiveEmpty++;
+                            if (consecutiveEmpty >= emptyLimit) {
+                                stoppedEarly = true;
+                                ui.log(`${grp.name} : arrêt — ${emptyLimit} périodes vides consécutives`, 'info');
+                                break;
+                            }
                         }
                     }
                     ui.setSubstep('');
-                    ui.log(`${grp.name} : ${groupRecords} enregistrements (${groupFiles} fichiers)`, 'success');
+                    const suffix = stoppedEarly ? ' (arrêt anticipé)' : '';
+                    ui.log(`${grp.name} : ${groupRecords} enregistrements (${groupFiles} fichiers)${suffix}`, 'success');
                     results.ok.push({ name: grp.name, count: groupRecords });
                 } else {
                     const ck = cacheKey(shopID, grp.id);
                     const ttl = CACHE_TTL[grp.id] || 3_600_000;
                     let data;
+
+                    const onProgress = (done, total) => {
+                        ui.setSubstep(total != null ? `${done} / ${total} récupérés` : `${done} récupérés…`);
+                    };
 
                     if (useCache && !grp.requiresDateRange) {
                         const fresh = loadFromCache(ck, ttl);
@@ -1206,7 +1230,7 @@
                             if (raw && age < INCREMENTAL_TTL) {
                                 ui.setSubstep('sync incrémentale…');
                                 const since = new Date(raw.fetchedAt).toISOString();
-                                const updates = await grp.fetchSince(shopID, since);
+                                const updates = await grp.fetchSince(shopID, since, onProgress);
                                 if (updates.length === 0) {
                                     data = raw.data;
                                     ui.log(`${grp.name} : ${data.length} enregistrements (cache · à jour)`, 'cache');
@@ -1222,7 +1246,8 @@
                     }
 
                     if (data === undefined) {
-                        data = await grp.fetch(shopID, opts);
+                        data = await grp.fetch(shopID, opts, onProgress);
+                        ui.setSubstep('');
                         if (!grp.requiresDateRange) saveToCache(ck, data);
                     }
                     if (data.length === 0) {
